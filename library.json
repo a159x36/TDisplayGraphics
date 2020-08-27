@@ -1,7 +1,13 @@
-"name": "TDisplayGraphics",
-"version": "1.0.0",
-"repository":
 {
-    "type": "git",
-    "url": "https://github.com/a1597x6/TDisplayGraphics.git"
+	"name": "TDisplayGraphics",
+	"keywords": "ttgo. tdisplay, st7789v",
+	"description": "Simple graphics library for the TTGO T-Display board",
+	"version": "1.0.0",
+	"repository":
+	{
+		"type": "git",
+		"url": "https://github.com/a1597x6/TDisplayGraphics.git"
+	},
+	"frameworks": "espidf",
+	"platforms": "espressif32"
 }
