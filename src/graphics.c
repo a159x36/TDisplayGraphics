@@ -100,6 +100,7 @@ void graphics_init() {
 }
 
 void draw_rectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t colour) {
+    if(x>=display_width || y>=display_height) return;
     if((x+w)>display_width) w=display_width-x;
     if((y+h)>display_height) h=display_height-y;
     for (int j=y; j<y+h;j++) {
