@@ -86,7 +86,7 @@
 #define ST7789_PROMACT		0xFE      // Program action
 
 
-#define PIN_NUM_MISO 0
+#define PIN_NUM_MISO -1
 #define PIN_NUM_MOSI 19
 #define PIN_NUM_CLK  18
 #define PIN_NUM_CS   5
