@@ -144,7 +144,7 @@ void draw_image(image_header *im, uint16_t x, uint16_t y) {
                     }
                 } else pixel_data++;
             }
-        }
+        } else pixel_data+=width;
     }
 }
 void graphics_init() {
