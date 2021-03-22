@@ -33,3 +33,4 @@ typedef struct {
 } image_header;
 void draw_image(image_header *im, uint16_t x, uint16_t y);
 void draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t colour);
+void draw_triangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2 ,uint16_t colour);

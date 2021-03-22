@@ -28,14 +28,22 @@ inline int clamp(int x,int min,int max) {
     return x;
 }
 
+#define SWAP(a,b) {int16_t tx=x ## a;int16_t ty=y ## a;x ## a=x ## b;y ## a=y ## b;x ## b=tx;y ## b=ty;}
+
 void draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t colour) {
     x0=clamp(x0,0,display_width-1);
     x1=clamp(x1,0,display_width-1);
     y0=clamp(y0,0,display_height-1);
     y1=clamp(y1,0,display_height-1);
-    int dx =  abs(x1-x0);
-    int sx = x0<x1 ? 1 : -1;
+    if(x0>x1) SWAP(0,1);
+    int dx =  x1-x0;
     int dy = -abs(y1-y0);
+    if(dy==0) {
+        uint16_t *fb=frame_buffer+(y0*display_width)+x0;
+        for(int i=0;i<dx+1;i++)
+            *fb++=colour;
+        return;
+    }
     int sy = y0<y1 ? 1 : -1;
     int err = dx+dy;  /* error value e_xy */
     while (true) {   /* loop */
@@ -44,13 +52,63 @@ void draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t colour) 
         int e2 = 2*err;
         if (e2 >= dy) { /* e_xy+e_x > 0 */
             err += dy;
-            x0 += sx;
+            x0++;
         }
         if (e2 <= dx) {/* e_xy+e_y < 0 */
             err += dx;
             y0 += sy;
         }
     }
+}
+
+
+
+void draw_triangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2 ,uint16_t colour) {
+    x0=clamp(x0,0,display_width-1);
+    x1=clamp(x1,0,display_width-1);
+    x2=clamp(x2,0,display_width-1);
+    y0=clamp(y0,0,display_height-1);
+    y1=clamp(y1,0,display_height-1); 
+    y2=clamp(y2,0,display_height-1);
+
+    if(y1<y0) SWAP(0,1);
+    if(y2<y0) SWAP(0,2);
+    if(y2<y1) SWAP(1,2);
+
+    int16_t x3;
+    if(y2!=y0) {
+        x3=(int16_t)(x0 + ((float)(y1 - y0) / (float)(y2 - y0)) * (x2 - x0));
+    } else {
+        x3=x0;
+    }
+    
+    if(y1!=y0) {
+        float invslope1 = (x1 - x0) / (float)(y1 - y0);
+        float invslope2 = (x3 - x0) / (float)(y1 - y0);
+
+        float curx1 = x0;
+        float curx2 = x0;
+        for (int16_t scanlineY = y0; scanlineY <= y1; scanlineY++) {
+            draw_line((int)curx1, scanlineY, (int)curx2, scanlineY, colour);
+            curx1 += invslope1;
+            curx2 += invslope2;
+        }
+    }
+
+    if(y2!=y1) {
+        float invslope1 = (x2 - x1) / (float)(y2 - y1);
+        float invslope2 = (x2 - x3) / (float)(y2 - y1);
+
+        float curx1 = x2;
+        float curx2 = x2;
+        for (int16_t scanlineY = y2; scanlineY > y1; scanlineY--) {
+            draw_line((int)curx1, scanlineY, (int)curx2, scanlineY, colour);
+            curx1 -= invslope1;
+            curx2 -= invslope2;
+        }
+    }
+
+
 }
 
 // only RGBA for now
