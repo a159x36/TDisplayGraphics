@@ -4,6 +4,8 @@
 // simple graphics library for TTGO T-Display used in 159236,
 // Martin Johnson 2020
 uint16_t *frame_buffer;
+uint16_t *fb1;
+uint16_t *fb2;
 
 void draw_pixel( uint16_t x, uint16_t y, uint16_t colour);
 void graphics_init();

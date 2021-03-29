@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include "st7789v.h"
 
 // simple graphics library for TTGO T-Display used in 159236,
@@ -21,11 +20,12 @@ inline void draw_pixel(uint16_t x, uint16_t y, uint16_t colour) {
     frame_buffer[offset] = colour;
 }
 uint16_t *frame_buffer;
+uint16_t *fb1;
+uint16_t *fb2;
 
 inline int clamp(int x,int min,int max) {
-    if(x<min) return min;
-    if(x>max) return max;
-    return x;
+    const int t = x < min ? min : x;
+    return t > max ? max : t;
 }
 
 #define SWAP(a,b) {int16_t tx=x ## a;int16_t ty=y ## a;x ## a=x ## b;y ## a=y ## b;x ## b=tx;y ## b=ty;}
@@ -61,8 +61,6 @@ void draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t colour) 
     }
 }
 
-
-
 void draw_triangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2 ,uint16_t colour) {
     x0=clamp(x0,0,display_width-1);
     x1=clamp(x1,0,display_width-1);
@@ -75,41 +73,103 @@ void draw_triangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, i
     if(y2<y0) SWAP(0,2);
     if(y2<y1) SWAP(1,2);
 
-    int16_t x3;
-    if(y2!=y0) {
-        x3=(int16_t)(x0 + ((float)(y1 - y0) / (float)(y2 - y0)) * (x2 - x0));
-    } else {
-        x3=x0;
-    }
+    int dx =  abs(x2-x0);
+    int dy = -abs(y2-y0);
+    int dx1 =  abs(x1-x0);
+    int dy1 = -abs(y1-y0);
+    int dx2 =  abs(x2-x1);
+    int dy2 = -abs(y2-y1);
+    int sx = x0<x2 ? 1 : -1;
+    int sx1 = x0<x1 ? 1 : -1;
+    int sx2 = x1<x2 ? 1 : -1;
     
-    if(y1!=y0) {
-        float invslope1 = (x1 - x0) / (float)(y1 - y0);
-        float invslope2 = (x3 - x0) / (float)(y1 - y0);
-
-        float curx1 = x0;
-        float curx2 = x0;
-        for (int16_t scanlineY = y0; scanlineY <= y1; scanlineY++) {
-            draw_line((int)curx1, scanlineY, (int)curx2, scanlineY, colour);
-            curx1 += invslope1;
-            curx2 += invslope2;
+    int err = dx+dy;  /* error value e_xy */
+    int err1 = dx1+dy1;
+    int err2 = dx2+dy2;
+    int xx0=x0;
+    int yy0=y0;
+  //  draw_pixel(x0, y0, colour);
+    while (true) {   /* loop */
+        //draw_pixel(x0, y0, colour);
+        if (yy0==y1 ) break;
+        int e2 = 2*err;
+        if (e2 >= dy) { /* e_xy+e_x > 0 */
+            err += dy;
+            x0+=sx;
+        }
+        if (e2 <= dx) {/* e_xy+e_y < 0 */
+            err += dx;
+            y0++;
+            while(true) {
+                int e2 = 2*err1;
+                if (e2 >= dy1) { /* e_xy+e_x > 0 */
+                    err1 += dy1;
+                    xx0+=sx1;
+                }
+                if (e2 <= dx1) {/* e_xy+e_y < 0 */
+                    err1 += dx1;
+                    yy0++;
+                    if(x0<xx0) {
+                        uint16_t *fb=frame_buffer+(y0*display_width)+x0;
+                        for(int i=x0;i<=xx0;i++)
+                            *fb++=colour;
+                    } else {
+                        uint16_t *fb=frame_buffer+(y0*display_width)+xx0;
+                        for(int i=xx0;i<=x0;i++)
+                            *fb++=colour;
+                    }
+                
+                    break;
+                }
+            }
+         //   if(y0==y1) 
+         //       break;
         }
     }
-
-    if(y2!=y1) {
-        float invslope1 = (x2 - x1) / (float)(y2 - y1);
-        float invslope2 = (x2 - x3) / (float)(y2 - y1);
-
-        float curx1 = x2;
-        float curx2 = x2;
-        for (int16_t scanlineY = y2; scanlineY > y1; scanlineY--) {
-            draw_line((int)curx1, scanlineY, (int)curx2, scanlineY, colour);
-            curx1 -= invslope1;
-            curx2 -= invslope2;
+    //draw_line(x1,y1,xx0,y0,colour);
+    xx0=x1;
+    //draw_line(x0,y0,xx0,y0,colour);
+    
+    while (true) {  
+        //draw_pixel(x0, y0, colour);
+        if (yy0==y2) break;
+        int e2 = 2*err;
+        if (e2 >= dy) { 
+            err += dy;
+            x0+=sx;
+        }
+        if (e2 <= dx) {
+            err += dx;
+            y0 ++;
+            while(true) {
+                int e2 = 2*err2;
+                if (e2 >= dy2) {
+                    err2 += dy2;
+                    xx0+=sx2;
+                }
+                if (e2 <= dx2) {
+                    err2 += dx2;
+                    yy0++;
+                    
+                    if(x0<xx0) {
+                        uint16_t *fb=frame_buffer+(y0*display_width)+x0;
+                        for(int i=x0;i<=xx0;i++)
+                            *fb++=colour;
+                    } else {
+                        uint16_t *fb=frame_buffer+(y0*display_width)+xx0;
+                        for(int i=xx0;i<=x0;i++)
+                            *fb++=colour;
+                    }
+                    
+                    break;
+                }
+            }
+          //  if(y0==y2) 
+          //      break;
         }
     }
-
-
 }
+
 
 // only RGBA for now
 void draw_image(image_header *im, uint16_t x, uint16_t y) {
@@ -148,9 +208,12 @@ void draw_image(image_header *im, uint16_t x, uint16_t y) {
     }
 }
 void graphics_init() {
-    frame_buffer =
+    fb1 =
         heap_caps_malloc(240*135 * sizeof(uint16_t), MALLOC_CAP_DMA);
-    if (frame_buffer == 0) {
+    fb2 =
+        heap_caps_malloc(240*135 * sizeof(uint16_t), MALLOC_CAP_DMA);
+    frame_buffer=fb1;
+    if (fb1 == 0 || fb2==0) {
         printf("Error: Can't allocate frame buffer");
         return;
     }
@@ -178,8 +241,8 @@ void cls(uint16_t colour) {
 
 int frame_no=0;
 void flip_frame() {
-    send_frame();
     wait_frame();
+    send_frame();
 }
 
 inline uint16_t rgbToColour(uint16_t red, uint16_t green, uint16_t blue) {

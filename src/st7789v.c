@@ -196,6 +196,8 @@ void send_frame() {
         assert(ret == ESP_OK);
     }
     frame_sent=1;
+    if(frame_buffer==fb1) frame_buffer=fb2;
+    else frame_buffer=fb1;
 }
 
 void wait_frame() {
