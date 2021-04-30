@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 
 #include "graphics.h"
 
@@ -85,7 +86,6 @@ int getFontHeight() {
 
 void setFontColour(uint16_t red, uint16_t green, uint16_t blue) {
     uint16_t v = ((red >> 3) << 11) | ((green >> 2) << 5) | (blue >> 3);
-  //  v = ((v >> 8) | (v << 8));
     fontColour = v;
 }
 
@@ -133,10 +133,12 @@ int printProportionalChar(int x, int y, propFont *fontChar) {
 }
 
 int lasty=0;
+int lastx=0;
 int print_xy(char *st, int x, int y) {
     int stl;
     uint8_t ch;
     int startx=x;
+    int maxx=x;
     if(y==CENTER) {
         y=display_height/2-tft_cfont.y_size/2;
     }
@@ -150,15 +152,30 @@ int print_xy(char *st, int x, int y) {
     stl = strlen(st);
     for (int i = 0; i < stl; i++) {
         ch = st[i];
-        getCharPtr(ch, &fontChar);
-        //   tmpw = fontChar.xDelta;
-        if(y>0)
-            x += printProportionalChar(x, y, &fontChar) + 1;
-        else
-            x += ((fontChar.width > fontChar.xDelta) ? fontChar.width
-                                                       : fontChar.xDelta);
+		if(ch=='\n') {
+			x=startx;
+			y=y+tft_cfont.y_size;
+		} else {
+            getCharPtr(ch, &fontChar);
+            if(y>=0)
+                x += printProportionalChar(x, y, &fontChar) + 1;
+            else
+                x += ((fontChar.width > fontChar.xDelta) ? fontChar.width
+                                                        : fontChar.xDelta);
+            if(x>maxx) maxx=x;
+        }
     }
     if(y>0)
         lasty=y;
-    return x-startx;
+    lastx=x;
+    return maxx-startx;
+}
+
+void gprintf(const char *fmt, ...) {
+	char mesg[256];
+	va_list args;
+	va_start(args, fmt);
+	vsnprintf(mesg,256,fmt,args);
+	va_end(args);
+	print_xy(mesg,lastx,lasty);
 }

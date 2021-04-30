@@ -82,31 +82,38 @@ void draw_triangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, i
     int sx = x0<x2 ? 1 : -1;
     int sx1 = x0<x1 ? 1 : -1;
     int sx2 = x1<x2 ? 1 : -1;
-    
-    int err = dx+dy;  /* error value e_xy */
+    int err = dx+dy;
     int err1 = dx1+dy1;
     int err2 = dx2+dy2;
     int xx0=x0;
     int yy0=y0;
-  //  draw_pixel(x0, y0, colour);
-    while (true) {   /* loop */
-        //draw_pixel(x0, y0, colour);
+    /*
+        Draw the dringle in two pieces
+           (x0,y0) o
+                  / \
+                 /   \
+       (x1,y1)  o.----\
+                   .   \
+                      . \
+                         o (x2,y2)
+    */
+    while (true) {   /* for top of triangle*/
         if (yy0==y1 ) break;
         int e2 = 2*err;
-        if (e2 >= dy) { /* e_xy+e_x > 0 */
+        if (e2 >= dy) {
             err += dy;
             x0+=sx;
         }
-        if (e2 <= dx) {/* e_xy+e_y < 0 */
+        if (e2 <= dx) {
             err += dx;
             y0++;
             while(true) {
                 int e2 = 2*err1;
-                if (e2 >= dy1) { /* e_xy+e_x > 0 */
+                if (e2 >= dy1) {
                     err1 += dy1;
                     xx0+=sx1;
                 }
-                if (e2 <= dx1) {/* e_xy+e_y < 0 */
+                if (e2 <= dx1) {
                     err1 += dx1;
                     yy0++;
                     if(x0<xx0) {
@@ -118,20 +125,13 @@ void draw_triangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, i
                         for(int i=xx0;i<=x0;i++)
                             *fb++=colour;
                     }
-                
                     break;
                 }
             }
-         //   if(y0==y1) 
-         //       break;
         }
     }
-    //draw_line(x1,y1,xx0,y0,colour);
     xx0=x1;
-    //draw_line(x0,y0,xx0,y0,colour);
-    
-    while (true) {  
-        //draw_pixel(x0, y0, colour);
+    while (true) { // for bottom of triangle
         if (yy0==y2) break;
         int e2 = 2*err;
         if (e2 >= dy) { 
@@ -150,7 +150,6 @@ void draw_triangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, i
                 if (e2 <= dx2) {
                     err2 += dx2;
                     yy0++;
-                    
                     if(x0<xx0) {
                         uint16_t *fb=frame_buffer+(y0*display_width)+x0;
                         for(int i=x0;i<=xx0;i++)
@@ -160,12 +159,9 @@ void draw_triangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, i
                         for(int i=xx0;i<=x0;i++)
                             *fb++=colour;
                     }
-                    
                     break;
                 }
             }
-          //  if(y0==y2) 
-          //      break;
         }
     }
 }
@@ -231,12 +227,14 @@ void draw_rectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t col
         }
     }
 }
-
+extern int lastx, lasty;
 void cls(uint16_t colour) {
     if((colour>>8) == (colour&255)) {
         memset(frame_buffer,colour&255,240*135*2);
     }
     draw_rectangle(0,0,display_width,display_height,colour);
+    lastx=0;
+    lasty=0;
 }
 
 int frame_no=0;
