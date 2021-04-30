@@ -55,8 +55,8 @@ DRAM_ATTR static const lcd_init_cmd_t st_init_cmds[] = {
     {ST7789_VRHS, {0x11}, 1},
     /* VDV Set, VDV=0 */
     {ST7789_VDVSET, {0x20}, 1},
-    /* Frame Rate Control, 60Hz, inversion=0 */
-    {ST7789_FRCTR2, {0x0f}, 1},
+    /* Frame Rate Control, 75Hz, inversion=0 0x05=90 0x09=75, 0x0f=60 */
+    {ST7789_FRCTR2, {0x09}, 1},
     /* Power Control 1, AVDD=6.8V, AVCL=-4.8V, VDDS=2.3V */
     {ST7789_PWCTRL1, {0xA4, 0xA1}, 2},
     /* Positive Voltage Gamma Control */
