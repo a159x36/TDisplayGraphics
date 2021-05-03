@@ -4,132 +4,117 @@
 #include <stdarg.h>
 
 #include "graphics.h"
+#include <fonts.h>
 
-extern unsigned char tft_Dejavu18[];
-extern unsigned char tft_Dejavu24[];
-extern unsigned char tft_def_small[];
-extern unsigned char tft_Ubuntu16[];
+/*
+#include "FreeSans9pt7b.h"
+#include "FreeSans12pt7b.h"
+#include "FreeSans18pt7b.h"
+#include "FreeSans24pt7b.h"
+#include "FreeSansBold9pt7b.h"
+#include "FreeSansBold12pt7b.h"
+#include "FreeSansBold18pt7b.h"
+#include "FreeSansBold24pt7b.h"
+#include "Font_5x7_practical.h"
+*/
 
-typedef struct {
-    uint8_t *font;
-    uint8_t x_size;
-    uint8_t y_size;
-    uint8_t offset;
-    uint16_t numchars;
-    uint16_t size;
-    uint8_t max_x_size;
-    uint8_t bitmap;
-    uint16_t color;
-} Font;
-Font tft_cfont = {
-    .font = tft_def_small,
-    .x_size = 0,
-    .y_size = 0x8,
-    .offset = 4,
-    .numchars = 95,
-    .bitmap = 1,
-};
-typedef struct {
-    uint8_t charCode;
-    int adjYOffset;
-    int width;
-    int height;
-    int xOffset;
-    int xDelta;
-    uint16_t dataPtr;
-} propFont;
+#include "DejaVuSans24.h"
+#include "DejaVuSans18.h"
+#include "Ubuntu16.h"
+#include "def_small.h"
 
-static uint16_t ptrlookup[256];
+GFXfont cfont;
 
 uint16_t fontColour = -1;
 
-void loadfont() {
-    propFont fontChar;
-    uint16_t tempPtr = 4;  // point at first char data
-    do {
-        fontChar.charCode = tft_cfont.font[tempPtr++];
-        if (fontChar.charCode == 0xFF) return;
-        ptrlookup[fontChar.charCode] = tempPtr - 1;
-        fontChar.adjYOffset = tft_cfont.font[tempPtr++];
-        fontChar.width = tft_cfont.font[tempPtr++];
-        fontChar.height = tft_cfont.font[tempPtr++];
-        fontChar.xOffset = tft_cfont.font[tempPtr++];
-        fontChar.xOffset = fontChar.xOffset < 0x80 ? fontChar.xOffset
-                                                   : -(0xFF - fontChar.xOffset);
-        fontChar.xDelta = tft_cfont.font[tempPtr++];
-
-        if (fontChar.charCode != 0xFF) {
-            if (fontChar.width != 0) {
-                // packed bits
-                tempPtr += (((fontChar.width * fontChar.height) - 1) / 8) + 1;
-            }
-        }
-    } while (fontChar.charCode != 0xFF);
-}
-
-const unsigned char * const all_fonts[] = {tft_def_small, tft_Ubuntu16, tft_Dejavu18,
-                              tft_Dejavu24};
-
-void setFont(uint8_t font) {
-    if (font > sizeof(all_fonts) / sizeof(all_fonts[0])) return;
-    tft_cfont.font = (unsigned char *)all_fonts[font];
-    tft_cfont.bitmap = 1;
-    tft_cfont.x_size = tft_cfont.font[0];
-    tft_cfont.y_size = tft_cfont.font[1];
-    tft_cfont.offset = 4;
-    loadfont();
+void setFont(GFXfont font) {
+    cfont=font;
 }
 
 int getFontHeight() {
-    return tft_cfont.y_size;
+    return cfont.yAdvance;
 }
-
-void setFontColour(uint16_t red, uint16_t green, uint16_t blue) {
+int fcred=0;
+int fcgreen=0;
+int fcblue=0;
+void setFontColour(uint8_t red, uint8_t green, uint8_t blue) {
     uint16_t v = ((red >> 3) << 11) | ((green >> 2) << 5) | (blue >> 3);
     fontColour = v;
+    fcred=red;
+    fcgreen=green;
+    fcblue=blue;
+}
+int anitalias=0;
+int charWidth(char c) {
+    if(c>cfont.last) return 0;
+    int ch=c-cfont.first;
+    if(ch<0) return 0;
+    GFXglyph *glyph = cfont.glyph+ch;
+    if(anitalias) return glyph->xAdvance/2;
+    return glyph->xAdvance;
 }
 
-static void getCharPtr(uint8_t c, propFont *fontChar) {
-    uint16_t tempPtr = 4;  // point at first char data
-    if (ptrlookup[c] == 0) loadfont();
-    tempPtr = ptrlookup[c];
-    fontChar->charCode = tft_cfont.font[tempPtr++];
-    fontChar->adjYOffset = tft_cfont.font[tempPtr++];
-    fontChar->width = tft_cfont.font[tempPtr++];
-    fontChar->height = tft_cfont.font[tempPtr++];
-    fontChar->xOffset = tft_cfont.font[tempPtr++];
-    fontChar->xOffset = fontChar->xOffset < 0x80 ? fontChar->xOffset
-                                                 : -(0xFF - fontChar->xOffset);
-    fontChar->xDelta = tft_cfont.font[tempPtr++];
-    fontChar->dataPtr = tempPtr;
-}
+int printProportionalChar(int x, int y, char c) {
+    
 
-int printProportionalChar(int x, int y, propFont *fontChar) {
-    uint8_t ch = 0;
-    int i, j, char_width;
+    if(c>cfont.last) return 0;
+    int ch=c-cfont.first;
+    if(ch<0) return 0;
+    GFXglyph *glyph = cfont.glyph+ch;
+    uint16_t bo = glyph->bitmapOffset;
+    uint8_t w = glyph->width, h = glyph->height;
+    int8_t xo = glyph->xOffset,
+           yo = cfont.yAdvance/2+glyph->yOffset;
+    uint8_t xx, yy, bits = 0, bit = 0;
 
-    char_width = ((fontChar->width > fontChar->xDelta) ? fontChar->width
-                                                       : fontChar->xDelta);
-    int cx, cy;
+    if (anitalias) {
+        u_int16_t pixel=frame_buffer[display_width*y+x];
+        int r= (pixel&0xf800)>>8;
+        int g= (pixel&0x07e0)>>3;
+        int b= (pixel&0x001f)<<3;
 
-    // draw Glyph
-    uint8_t mask = 0x80;
-    for (j = 0; j < fontChar->height; j++) {
-        for (i = 0; i < fontChar->width; i++) {
-            if (((i + (j * fontChar->width)) % 8) == 0) {
-                mask = 0x80;
-                ch = tft_cfont.font[fontChar->dataPtr++];
-            }
-
-            if ((ch & mask) != 0) {
-                cx = (uint16_t)(x + fontChar->xOffset + i);
-                cy = (uint16_t)(y + j + fontChar->adjYOffset);
-                draw_pixel(cx, cy, fontColour);
-            }
-            mask >>= 1;
+        int cols[5];//{0,rgbToColour(64,64,64),rgbToColour(128,128,128),rgbToColour(192,192,192),-1};
+        for(int i=0;i<5;i++) {
+            float fgm=i/4.0f;
+            float bgm=1-fgm;
+            cols[i]=rgbToColour(fgm*fcred+bgm*r,fgm*fcgreen+bgm*g,fgm*fcblue+bgm*b);
         }
+        xo=xo/2;
+        yo= cfont.yAdvance/2+glyph->yOffset+3;
+        for (yy = 0; yy < h; yy+=2) {
+            uint8_t line[w/2+1];
+            for(int i=0;i<w/2+1;i++)
+                line[i]=0;
+            for(int yi=yy;yi<yy+2 && yi<h;yi++) {
+            for (xx = 0; xx < w; xx++) {
+                if (!(bit++ & 7)) {
+                    bits = cfont.bitmap[bo++];
+                }
+                if (bits & 0x80) {
+                    line[xx/2]++;
+                }
+                bits <<= 1;
+            }
+            }
+            for(int i=0;i<w/2+1;i++) {
+                if(line[i]) draw_pixel(x + xo + i, y + (yo + yy)/2, cols[line[i]]);
+            }
+        }
+        return glyph->xAdvance/2;
     }
-    return char_width;
+
+    for (yy = 0; yy < h; yy++) {
+      for (xx = 0; xx < w; xx++) {
+        if (!(bit++ & 7)) {
+          bits = cfont.bitmap[bo++];
+        }
+        if (bits & 0x80) {
+            draw_pixel(x + xo + xx, y + yo + yy, fontColour);
+        }
+        bits <<= 1;
+      }
+    }
+    return glyph->xAdvance;
 }
 
 int lasty=0;
@@ -140,28 +125,24 @@ int print_xy(char *st, int x, int y) {
     int startx=x;
     int maxx=x;
     if(y==CENTER) {
-        y=display_height/2-tft_cfont.y_size/2;
+        y=display_height/2-cfont.yAdvance/4;
     }
     if(x==CENTER) {
         x=display_width/2-print_xy(st,0,-1)/2;
     }
     if(y>=LASTY)
         y=y-LASTY+lasty;
-    propFont fontChar;
-    if (tft_cfont.bitmap == 0) return 0;  // wrong font selected
     stl = strlen(st);
     for (int i = 0; i < stl; i++) {
         ch = st[i];
 		if(ch=='\n') {
 			x=startx;
-			y=y+tft_cfont.y_size;
+			y=y+cfont.yAdvance/2;
 		} else {
-            getCharPtr(ch, &fontChar);
             if(y>=0)
-                x += printProportionalChar(x, y, &fontChar) + 1;
+                x += printProportionalChar(x, y, ch);
             else
-                x += ((fontChar.width > fontChar.xDelta) ? fontChar.width
-                                                        : fontChar.xDelta);
+                x += charWidth(ch);
             if(x>maxx) maxx=x;
         }
     }
