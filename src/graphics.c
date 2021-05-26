@@ -196,7 +196,7 @@ void draw_image(image_header *im, uint16_t x, uint16_t y) {
                             green=(trans*green+(255-trans)*dgreen)>>8;
                             blue=(trans*blue+(255-trans)*dblue)>>8;
                         }
-                        *dest=((red<<8)&0xf800) | ((green<<3)&0x7e00) |  ((green>>3)& 0x1f);
+                        *dest=((red<<8)&0xf800) | ((green<<3)&0x7e0) |  ((blue>>3)& 0x1f);
                     }
                 } else pixel_data++;
             }
