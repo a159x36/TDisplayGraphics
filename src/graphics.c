@@ -11,8 +11,8 @@
 uint16_t fgc=0xffff;
 uint16_t bgc=0;
 
-int display_width=240;
-int display_height=135;
+int display_width=REAL_DISPLAY_WIDTH;
+int display_height=REAL_DISPLAY_HEIGHT;
 
 inline void draw_pixel(uint16_t x, uint16_t y, uint16_t colour) {
     if(y>=display_height || x>=display_width) return;
@@ -205,9 +205,9 @@ void draw_image(image_header *im, uint16_t x, uint16_t y) {
 }
 void graphics_init() {
     fb1 =
-        heap_caps_malloc(240*135 * sizeof(uint16_t), MALLOC_CAP_DMA);
+        heap_caps_malloc(display_width*display_height * sizeof(uint16_t), MALLOC_CAP_DMA);
     fb2 =
-        heap_caps_malloc(240*135 * sizeof(uint16_t), MALLOC_CAP_DMA);
+        heap_caps_malloc(display_width*display_height * sizeof(uint16_t), MALLOC_CAP_DMA);
     frame_buffer=fb1;
     if (fb1 == 0 || fb2==0) {
         printf("Error: Can't allocate frame buffer");
@@ -230,7 +230,7 @@ void draw_rectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t col
 extern int lastx, lasty;
 void cls(uint16_t colour) {
     if((colour>>8) == (colour&255)) {
-        memset(frame_buffer,colour&255,240*135*2);
+        memset(frame_buffer,colour&255,display_width*display_height*2);
     }
     draw_rectangle(0,0,display_width,display_height,colour);
     lastx=0;

@@ -6,6 +6,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "esp_lcd_panel_io.h"
+#include "esp_lcd_panel_vendor.h"
+#include "esp_lcd_panel_ops.h"
 
 // st7789v driver for TTGO T-Display used in 159236, 
 // based on spi_master code in the espressif examples 
@@ -18,8 +21,10 @@
 
 #define USE_POLLING 0
 
-int display_width_offset=40;
-int display_height_offset=53;
+
+
+int display_width_offset=REAL_DISPLAY_WIDTH_OFFSET;//40;
+int display_height_offset=REAL_DISPLAY_HEIGHT_OFFSET;//53;
 /*
  The LCD needs a bunch of command/argument values to be initialized. They are
  stored in this struct.
@@ -33,30 +38,34 @@ typedef struct {
 
 spi_device_handle_t spi_device;
 
+esp_lcd_panel_io_handle_t io_handle = NULL;
+
 // Place data into DRAM. Constant data gets placed into DROM by default, which
 // is not accessible by DMA.
 DRAM_ATTR static const lcd_init_cmd_t st_init_cmds[] = {
     /* Memory Data Access Control, MX=MV=1, MY=ML=MH=0, RGB=0 */
     /* Lansdcape mode */
+
     {ST7789_MADCTL, {TFT_MAD_MX | TFT_MAD_MV}, 1}, 
+//    {0xb6,{0x0a,0x82},2},
     /* Interface Pixel Format, 16bits/pixel for RGB/MCU interface */
     {ST7789_COLMOD, {0x55}, 1},
     /* Porch Setting */
     {ST7789_PORCTRL, {0x0c, 0x0c, 0x00, 0x33, 0x33}, 5},
     /* Gate Control, Vgh=13.65V, Vgl=-10.43V */
-    {ST7789_GCTRL, {0x45}, 1},
+    {ST7789_GCTRL, {0x35}, 1}, // 35
     /* VCOM Setting, VCOM=1.175V */
-    {ST7789_VCOMS, {0x2B}, 1},
+    {ST7789_VCOMS, {0x28}, 1}, //28
     /* LCM Control, XOR: BGR, MX, MH */
     {ST7789_LCMCTRL, {0x2C}, 1},
     /* VDV and VRH Command Enable, enable=1 */
     {ST7789_VDVVRHEN, {0x01, 0xff}, 2},
     /* VRH Set, Vap=4.4+... */
-    {ST7789_VRHS, {0x11}, 1},
+    {ST7789_VRHS, {0x10}, 1}, //10
     /* VDV Set, VDV=0 */
     {ST7789_VDVSET, {0x20}, 1},
     /* Frame Rate Control, 75Hz, inversion=0 0x05=90 0x09=75, 0x0f=60 */
-    {ST7789_FRCTR2, {0x09}, 1},
+    {ST7789_FRCTR2, {0x0f}, 1},
     /* Power Control 1, AVDD=6.8V, AVCL=-4.8V, VDDS=2.3V */
     {ST7789_PWCTRL1, {0xA4, 0xA1}, 2},
     /* Positive Voltage Gamma Control */
@@ -71,8 +80,13 @@ DRAM_ATTR static const lcd_init_cmd_t st_init_cmds[] = {
      14},
     /* Invert On */
     {ST7789_INVON, {0}, 0x80},
+ //   {ST7789_INVOFF, {0}, 0x80},
     /* Little Endian */
-    {ST7789_RAMCTRL,{0,0xf8},2},
+#ifdef TTGO_S3
+    {ST7789_RAMCTRL,{0,0xe0},2}, //e0
+#else
+    {ST7789_RAMCTRL,{0,0xf8},2}, //e0
+#endif
     /* Sleep Out */
     {ST7789_SLPOUT, {0}, 0x80},
     /* Display On */
@@ -81,6 +95,8 @@ DRAM_ATTR static const lcd_init_cmd_t st_init_cmds[] = {
 
 void lcd_cmd(const uint8_t cmd, const uint8_t *data, int len) {
     esp_err_t ret;
+    #ifndef PARALLEL_LCD
+    
     spi_transaction_t t[2] = {{.length = 8, .tx_buffer = &cmd, .user = U_CMD},
                 {.length = len * 8, .tx_buffer = data, .user = U_DATA}};
     ret = spi_device_transmit(spi_device, &t[0]); 
@@ -88,6 +104,11 @@ void lcd_cmd(const uint8_t cmd, const uint8_t *data, int len) {
     if (len == 0) return;                      
     ret = spi_device_transmit(spi_device, &t[1]);
     assert(ret == ESP_OK); 
+    #else
+    ret=esp_lcd_panel_io_tx_param(io_handle,cmd,data,len);
+    if(ret != ESP_OK)
+        printf("Error in lcd_cmd %d\n",ret);
+    #endif
 }
 // This function is called (in irq context!) just before a transmission starts.
 // It will set the D/C line to the value indicated in the user field.
@@ -101,6 +122,8 @@ void lcd_init() {
     int cmd = 0;
     const lcd_init_cmd_t *lcd_init_cmds;
 
+    
+#ifndef PARALLEL_LCD 
     esp_err_t ret;
     spi_bus_config_t buscfg = {.miso_io_num = PIN_NUM_MISO,
                                .mosi_io_num = PIN_NUM_MOSI,
@@ -125,20 +148,94 @@ void lcd_init() {
     // Attach the LCD to the SPI bus
     ret = spi_bus_add_device(HSPI_HOST, &devcfg, &spi_device);
     ESP_ERROR_CHECK(ret);
+    gpio_set_direction(PIN_NUM_DC, GPIO_MODE_OUTPUT);
     // Initialize the LCD
+#else
+    gpio_set_direction(PIN_POWER_ON, GPIO_MODE_OUTPUT);
+    gpio_set_level(PIN_POWER_ON, 1);
+    gpio_set_direction(PIN_NUM_RD, GPIO_MODE_OUTPUT);
+    gpio_set_level(PIN_NUM_RD, 1);
+    vTaskDelay(100 / portTICK_RATE_MS);
+esp_lcd_i80_bus_handle_t i80_bus = NULL;
+esp_lcd_i80_bus_config_t bus_config = {
+        .clk_src = LCD_CLK_SRC_PLL160M,//LCD_CLK_SRC_DEFAULT,
+        .dc_gpio_num = PIN_NUM_DC,
+        .wr_gpio_num = PIN_NUM_WR,
+     //   .rd_gpio_num = PIN_NUM_RD,
+        .data_gpio_nums = {
+            PIN_NUM_LCD_D0,
+            PIN_NUM_LCD_D1,
+            PIN_NUM_LCD_D2,
+            PIN_NUM_LCD_D3,
+            PIN_NUM_LCD_D4,
+            PIN_NUM_LCD_D5,
+            PIN_NUM_LCD_D6,
+            PIN_NUM_LCD_D7,
+
+        },
+        .bus_width = 8,
+        .max_transfer_bytes = 320 * 170* sizeof(uint16_t),
+        .psram_trans_align = 64,
+        .sram_trans_align = 4,
+    };
+    ESP_ERROR_CHECK(esp_lcd_new_i80_bus(&bus_config, &i80_bus));
+    esp_lcd_panel_io_spi_config_t spi_config;
+    esp_lcd_panel_io_i80_config_t io_config = {
+        .cs_gpio_num = PIN_NUM_CS,
+        .pclk_hz = 20*1000*1000,
+        .trans_queue_depth = 10,
+        .dc_levels = {
+            .dc_idle_level = 0,
+            .dc_cmd_level = 0,
+            .dc_dummy_level = 0,
+            .dc_data_level = 1,
+        },
+        .flags = {
+            .cs_active_high = 0,
+            .swap_color_bytes = 1, // Swap can be done in LvGL (default) or DMA
+        },
+     //   .on_color_trans_done = example_notify_lvgl_flush_ready,
+     //   .user_ctx = &disp_drv,
+        .lcd_cmd_bits = 8,
+        .lcd_param_bits = 8,
+    };
+    ESP_ERROR_CHECK(esp_lcd_new_panel_io_i80(i80_bus, &io_config, &io_handle));
+
+/*
+    esp_lcd_panel_handle_t panel_handle = NULL;
+  //  ESP_LOGI(TAG, "Install LCD driver of st7789");
+    esp_lcd_panel_dev_config_t panel_config = {
+        .reset_gpio_num = PIN_NUM_RST,
+      //  .rgb_endian = LCD_RGB_ENDIAN_RGB,
+        .bits_per_pixel = 16,
+    };
+    ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(io_handle, &panel_config, &panel_handle));
+
+    esp_lcd_panel_reset(panel_handle);
+    esp_lcd_panel_init(panel_handle);
+    // Set inversion, x/y coordinate order, x/y mirror according to your LCD module spec
+    // the gap is LCD panel specific, even panels with the same driver IC, can have different gap value
+    esp_lcd_panel_invert_color(panel_handle, true);
+    esp_lcd_panel_set_gap(panel_handle, 0, 20);
+    */
+    //ESP_ERROR_CHECK(esp_lcd_panel_disp_on(panel_handle, true));
+
+#endif
 
     // Initialize non-SPI GPIOs
-    gpio_set_direction(PIN_NUM_DC, GPIO_MODE_OUTPUT);
+    
     gpio_set_direction(PIN_NUM_RST, GPIO_MODE_OUTPUT);
     gpio_set_direction(PIN_NUM_BCKL, GPIO_MODE_OUTPUT);
 
     // Reset the display
+  //  gpio_set_level(PIN_NUM_RST, 1);
+  //  vTaskDelay(100 / portTICK_RATE_MS);
+    lcd_init_cmds = st_init_cmds;
     gpio_set_level(PIN_NUM_RST, 0);
     vTaskDelay(100 / portTICK_RATE_MS);
     gpio_set_level(PIN_NUM_RST, 1);
     vTaskDelay(100 / portTICK_RATE_MS);
-
-    lcd_init_cmds = st_init_cmds;
+    
 
     // Send all the commands
     while (lcd_init_cmds[cmd].databytes != 0xff) {
@@ -165,6 +262,41 @@ void lcd_init() {
 int frame_sent=0;
 
 void send_frame() {
+    
+    #ifdef PARALLEL_LCD
+    //display_width_offset=0;
+    //display_height_offset=35;
+    int x_start=display_width_offset;
+    int x_end=display_width_offset+display_width;
+    int y_start=display_height_offset;
+    int y_end=display_height_offset+display_height;
+
+   // esp_lcd_panel_io_rx_param
+    
+    esp_lcd_panel_io_tx_param(io_handle, ST7789_CASET, (uint8_t[]) {
+        (x_start >> 8) & 0xFF,
+        x_start & 0xFF,
+        ((x_end - 1) >> 8) & 0xFF,
+        (x_end - 1) & 0xFF,
+    }, 4);
+    esp_lcd_panel_io_tx_param(io_handle, ST7789_RASET, (uint8_t[]) {
+        (y_start >> 8) & 0xFF,
+        y_start & 0xFF,
+        ((y_end - 1) >> 8) & 0xFF,
+        (y_end - 1) & 0xFF,
+    }, 4);
+    // transfer frame buffer
+    size_t len = (x_end - x_start) * (y_end - y_start) * 2;
+    esp_lcd_panel_io_tx_color(io_handle, ST7789_RAMWR, frame_buffer, len);
+
+    frame_sent=1;
+    if(frame_buffer==fb1) frame_buffer=fb2;
+    else frame_buffer=fb1;
+  //  esp_lcd_panel_draw_bitmap(io_handle,display_width_offset,display_height_offset,
+  //              display_width_offset + display_width - 1,display_height_offset + display_height - 1,frame_buffer);
+    return;
+    #endif
+    
     esp_err_t ret;
     int x;
     // Transaction descriptors. Declared static so they're not allocated on the
@@ -189,11 +321,17 @@ void send_frame() {
 
     // Queue all transactions.
     for (x = 0; x < NELEMS(trans); x++) {
+#ifdef PARALLEL_LCD
+    if(x%2) {
+        lcd_cmd(trans[x-1].tx_data[0],trans[x].flags?trans[x].tx_data:trans[x].tx_buffer,trans[x].length/8);
+    }
+#else
         if(!USE_POLLING)
             ret = spi_device_queue_trans(spi_device, &trans[x], portMAX_DELAY);
         else
             ret = spi_device_polling_transmit(spi_device, &trans[x]);
         assert(ret == ESP_OK);
+#endif
     }
     frame_sent=1;
     if(frame_buffer==fb1) frame_buffer=fb2;
@@ -203,6 +341,7 @@ void send_frame() {
 void wait_frame() {
     if(!frame_sent)
         return;
+#ifndef PARALLEL_LCD
     spi_transaction_t *rtrans;
     esp_err_t ret;
     // Wait for all 6 transactions to be done and get back the results.
@@ -211,24 +350,26 @@ void wait_frame() {
             ret = spi_device_get_trans_result(spi_device, &rtrans, portMAX_DELAY);
             assert(ret == ESP_OK);
         }
+#endif
     frame_sent=0;
 }
 int get_orientation() {
     return display_width<display_height;
 }
 void set_orientation(int portrait) {
+    
     wait_frame();
     if(portrait) {
         lcd_cmd(ST7789_MADCTL, (uint8_t[1]){0}, 1);
-        display_width=135;
-        display_height=240;
-        display_width_offset=52;
-        display_height_offset=40;
+        display_width=REAL_DISPLAY_HEIGHT;
+        display_height=REAL_DISPLAY_WIDTH;
+        display_width_offset=REAL_DISPLAY_HEIGHT_OFFSET;
+        display_height_offset=REAL_DISPLAY_WIDTH_OFFSET;
     } else {
         lcd_cmd(ST7789_MADCTL, (uint8_t[1]){TFT_MAD_MX | TFT_MAD_MV}, 1);
-        display_width=240;
-        display_height=135;
-        display_width_offset=40;
-        display_height_offset=53;
+        display_width=REAL_DISPLAY_WIDTH;
+        display_height=REAL_DISPLAY_HEIGHT;
+        display_width_offset=REAL_DISPLAY_WIDTH_OFFSET;
+        display_height_offset=REAL_DISPLAY_HEIGHT_OFFSET;
     }
 }

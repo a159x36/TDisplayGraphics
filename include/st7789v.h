@@ -86,14 +86,44 @@
 #define ST7789_PROMACT		0xFE      // Program action
 
 
+
+
+#ifdef TTGO_S3
+#define PARALLEL_LCD
+#define REAL_DISPLAY_WIDTH 320
+#define REAL_DISPLAY_HEIGHT 170
+#define REAL_DISPLAY_WIDTH_OFFSET 0
+#define REAL_DISPLAY_HEIGHT_OFFSET 35
+#define PIN_POWER_ON  15
+#define PIN_NUM_RST  5
+#define PIN_NUM_CS   6
+#define PIN_NUM_DC   7
+#define PIN_NUM_WR   8
+#define PIN_NUM_RD   9
+#define PIN_NUM_BCKL 38
+#define PIN_NUM_LCD_D0 39
+#define PIN_NUM_LCD_D1 40
+#define PIN_NUM_LCD_D2 41
+#define PIN_NUM_LCD_D3 42
+#define PIN_NUM_LCD_D4 45
+#define PIN_NUM_LCD_D5 46
+#define PIN_NUM_LCD_D6 47
+#define PIN_NUM_LCD_D7 48
+#else
+#define REAL_DISPLAY_WIDTH 240
+#define REAL_DISPLAY_HEIGHT 135
+#define REAL_DISPLAY_WIDTH_OFFSET 40
+#define REAL_DISPLAY_HEIGHT_OFFSET 53
 #define PIN_NUM_MISO -1
 #define PIN_NUM_MOSI 19
 #define PIN_NUM_CLK  18
 #define PIN_NUM_CS   5
-
 #define PIN_NUM_DC   16
 #define PIN_NUM_RST  23
 #define PIN_NUM_BCKL 4
+#define TOUCH_PADS
+#endif
+
 
 #define PORTRAIT 1
 #define LANDSCAPE 0
