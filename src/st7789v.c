@@ -23,8 +23,8 @@
 
 
 
-int display_width_offset=REAL_DISPLAY_WIDTH_OFFSET;//40;
-int display_height_offset=REAL_DISPLAY_HEIGHT_OFFSET;//53;
+int display_width_offset=REAL_DISPLAY_WIDTH_OFFSET_LAND;
+int display_height_offset=REAL_DISPLAY_HEIGHT_OFFSET_LAND;
 /*
  The LCD needs a bunch of command/argument values to be initialized. They are
  stored in this struct.
@@ -65,7 +65,11 @@ DRAM_ATTR static const lcd_init_cmd_t st_init_cmds[] = {
     /* VDV Set, VDV=0 */
     {ST7789_VDVSET, {0x20}, 1},
     /* Frame Rate Control, 75Hz, inversion=0 0x05=90 0x09=75, 0x0f=60 */
+#ifdef TTGO_S3
     {ST7789_FRCTR2, {0x0f}, 1},
+#else
+	{ST7789_FRCTR2, {0x05}, 1},
+#endif
     /* Power Control 1, AVDD=6.8V, AVCL=-4.8V, VDDS=2.3V */
     {ST7789_PWCTRL1, {0xA4, 0xA1}, 2},
     /* Positive Voltage Gamma Control */
@@ -363,13 +367,13 @@ void set_orientation(int portrait) {
         lcd_cmd(ST7789_MADCTL, (uint8_t[1]){0}, 1);
         display_width=REAL_DISPLAY_HEIGHT;
         display_height=REAL_DISPLAY_WIDTH;
-        display_width_offset=REAL_DISPLAY_HEIGHT_OFFSET;
-        display_height_offset=REAL_DISPLAY_WIDTH_OFFSET;
+        display_width_offset=REAL_DISPLAY_HEIGHT_OFFSET_PORT;
+        display_height_offset=REAL_DISPLAY_WIDTH_OFFSET_PORT;
     } else {
         lcd_cmd(ST7789_MADCTL, (uint8_t[1]){TFT_MAD_MX | TFT_MAD_MV}, 1);
         display_width=REAL_DISPLAY_WIDTH;
         display_height=REAL_DISPLAY_HEIGHT;
-        display_width_offset=REAL_DISPLAY_WIDTH_OFFSET;
-        display_height_offset=REAL_DISPLAY_HEIGHT_OFFSET;
+        display_width_offset=REAL_DISPLAY_WIDTH_OFFSET_LAND;
+        display_height_offset=REAL_DISPLAY_HEIGHT_OFFSET_LAND;
     }
 }
