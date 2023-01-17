@@ -236,9 +236,9 @@ esp_lcd_i80_bus_config_t bus_config = {
   //  vTaskDelay(100 / portTICK_RATE_MS);
     lcd_init_cmds = st_init_cmds;
     gpio_set_level(PIN_NUM_RST, 0);
-    vTaskDelay(100 / portTICK_RATE_MS);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
     gpio_set_level(PIN_NUM_RST, 1);
-    vTaskDelay(100 / portTICK_RATE_MS);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
     
 
     // Send all the commands
@@ -246,7 +246,7 @@ esp_lcd_i80_bus_config_t bus_config = {
         lcd_cmd(lcd_init_cmds[cmd].cmd, lcd_init_cmds[cmd].data,
                  lcd_init_cmds[cmd].databytes & 0x1F);
         if (lcd_init_cmds[cmd].databytes & 0x80) {
-            vTaskDelay(100 / portTICK_RATE_MS);
+            vTaskDelay(100 / portTICK_PERIOD_MS);
         }
         cmd++;
     }
