@@ -68,7 +68,7 @@ int printProportionalChar(int x, int y, char c) {
     uint8_t xx, yy, bits = 0, bit = 0;
 
     if (anitalias) {
-        u_int16_t pixel=frame_buffer[display_width*y+x];
+        uint16_t pixel=frame_buffer[display_width*y+x];
         int r= (pixel&0xf800)>>8;
         int g= (pixel&0x07e0)>>3;
         int b= (pixel&0x001f)<<3;
