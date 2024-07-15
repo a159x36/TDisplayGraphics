@@ -16,7 +16,7 @@ int display_height=REAL_DISPLAY_HEIGHT;
 
 inline void draw_pixel(uint16_t x, uint16_t y, uint16_t colour) {
     if(y>=display_height || x>=display_width) return;
-    uint offset=y * display_width + x;
+    uint32_t offset=y * display_width + x;
     frame_buffer[offset] = colour;
 }
 uint16_t *frame_buffer;
