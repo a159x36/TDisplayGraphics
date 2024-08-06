@@ -21,8 +21,6 @@
 
 #define USE_POLLING 0
 
-
-
 int display_width_offset=REAL_DISPLAY_WIDTH_OFFSET_LAND;
 int display_height_offset=REAL_DISPLAY_HEIGHT_OFFSET_LAND;
 /*
@@ -159,13 +157,12 @@ void lcd_init() {
     gpio_set_level(PIN_POWER_ON, 1);
     gpio_set_direction(PIN_NUM_RD, GPIO_MODE_OUTPUT);
     gpio_set_level(PIN_NUM_RD, 1);
-    vTaskDelay(100 / portTICK_RATE_MS);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
 esp_lcd_i80_bus_handle_t i80_bus = NULL;
 esp_lcd_i80_bus_config_t bus_config = {
-        .clk_src = LCD_CLK_SRC_PLL160M,//LCD_CLK_SRC_DEFAULT,
+        .clk_src = LCD_CLK_SRC_PLL160M,
         .dc_gpio_num = PIN_NUM_DC,
         .wr_gpio_num = PIN_NUM_WR,
-     //   .rd_gpio_num = PIN_NUM_RD,
         .data_gpio_nums = {
             PIN_NUM_LCD_D0,
             PIN_NUM_LCD_D1,
@@ -183,7 +180,6 @@ esp_lcd_i80_bus_config_t bus_config = {
         .sram_trans_align = 4,
     };
     ESP_ERROR_CHECK(esp_lcd_new_i80_bus(&bus_config, &i80_bus));
-    esp_lcd_panel_io_spi_config_t spi_config;
     esp_lcd_panel_io_i80_config_t io_config = {
         .cs_gpio_num = PIN_NUM_CS,
         .pclk_hz = 20*1000*1000,
@@ -198,32 +194,10 @@ esp_lcd_i80_bus_config_t bus_config = {
             .cs_active_high = 0,
             .swap_color_bytes = 1, // Swap can be done in LvGL (default) or DMA
         },
-     //   .on_color_trans_done = example_notify_lvgl_flush_ready,
-     //   .user_ctx = &disp_drv,
         .lcd_cmd_bits = 8,
         .lcd_param_bits = 8,
     };
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_i80(i80_bus, &io_config, &io_handle));
-
-/*
-    esp_lcd_panel_handle_t panel_handle = NULL;
-  //  ESP_LOGI(TAG, "Install LCD driver of st7789");
-    esp_lcd_panel_dev_config_t panel_config = {
-        .reset_gpio_num = PIN_NUM_RST,
-      //  .rgb_endian = LCD_RGB_ENDIAN_RGB,
-        .bits_per_pixel = 16,
-    };
-    ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(io_handle, &panel_config, &panel_handle));
-
-    esp_lcd_panel_reset(panel_handle);
-    esp_lcd_panel_init(panel_handle);
-    // Set inversion, x/y coordinate order, x/y mirror according to your LCD module spec
-    // the gap is LCD panel specific, even panels with the same driver IC, can have different gap value
-    esp_lcd_panel_invert_color(panel_handle, true);
-    esp_lcd_panel_set_gap(panel_handle, 0, 20);
-    */
-    //ESP_ERROR_CHECK(esp_lcd_panel_disp_on(panel_handle, true));
-
 #endif
 
     // Initialize non-SPI GPIOs
@@ -301,7 +275,7 @@ void send_frame() {
     return;
     #endif
     
-    esp_err_t ret;
+
     int x;
     // Transaction descriptors. Declared static so they're not allocated on the
     // stack; we need this memory even when this function is finished because
@@ -326,10 +300,11 @@ void send_frame() {
     // Queue all transactions.
     for (x = 0; x < NELEMS(trans); x++) {
 #ifdef PARALLEL_LCD
-    if(x%2) {
-        lcd_cmd(trans[x-1].tx_data[0],trans[x].flags?trans[x].tx_data:trans[x].tx_buffer,trans[x].length/8);
-    }
+        if(x%2) {
+            lcd_cmd(trans[x-1].tx_data[0],trans[x].flags?trans[x].tx_data:trans[x].tx_buffer,trans[x].length/8);
+        }
 #else
+        esp_err_t ret;
         if(!USE_POLLING)
             ret = spi_device_queue_trans(spi_device, &trans[x], portMAX_DELAY);
         else
