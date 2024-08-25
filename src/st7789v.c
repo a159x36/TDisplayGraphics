@@ -97,7 +97,7 @@ DRAM_ATTR static const lcd_init_cmd_t st_init_cmds[] = {
 
 void lcd_cmd(const uint8_t cmd, const uint8_t *data, int len) {
     esp_err_t ret;
-    #ifndef PARALLEL_LCD
+#ifndef PARALLEL_LCD
     
     spi_transaction_t t[2] = {{.length = 8, .tx_buffer = &cmd, .user = U_CMD},
                 {.length = len * 8, .tx_buffer = data, .user = U_DATA}};
@@ -106,11 +106,11 @@ void lcd_cmd(const uint8_t cmd, const uint8_t *data, int len) {
     if (len == 0) return;                      
     ret = spi_device_transmit(spi_device, &t[1]);
     assert(ret == ESP_OK); 
-    #else
+#else
     ret=esp_lcd_panel_io_tx_param(io_handle,cmd,data,len);
     if(ret != ESP_OK)
         printf("Error in lcd_cmd %d\n",ret);
-    #endif
+#endif
 }
 // This function is called (in irq context!) just before a transmission starts.
 // It will set the D/C line to the value indicated in the user field.
@@ -123,8 +123,6 @@ void lcd_spi_pre_transfer_callback(spi_transaction_t *t) {
 void lcd_init() {
     int cmd = 0;
     const lcd_init_cmd_t *lcd_init_cmds;
-
-    
 #ifndef PARALLEL_LCD 
     esp_err_t ret;
     spi_bus_config_t buscfg = {.miso_io_num = PIN_NUM_MISO,
@@ -158,8 +156,8 @@ void lcd_init() {
     gpio_set_direction(PIN_NUM_RD, GPIO_MODE_OUTPUT);
     gpio_set_level(PIN_NUM_RD, 1);
     vTaskDelay(100 / portTICK_PERIOD_MS);
-esp_lcd_i80_bus_handle_t i80_bus = NULL;
-esp_lcd_i80_bus_config_t bus_config = {
+    esp_lcd_i80_bus_handle_t i80_bus = NULL;
+    esp_lcd_i80_bus_config_t bus_config = {
         .clk_src = LCD_CLK_SRC_PLL160M,
         .dc_gpio_num = PIN_NUM_DC,
         .wr_gpio_num = PIN_NUM_WR,
@@ -192,7 +190,7 @@ esp_lcd_i80_bus_config_t bus_config = {
         },
         .flags = {
             .cs_active_high = 0,
-            .swap_color_bytes = 1, // Swap can be done in LvGL (default) or DMA
+            .swap_color_bytes = 1,
         },
         .lcd_cmd_bits = 8,
         .lcd_param_bits = 8,
@@ -206,8 +204,6 @@ esp_lcd_i80_bus_config_t bus_config = {
     gpio_set_direction(PIN_NUM_BCKL, GPIO_MODE_OUTPUT);
 
     // Reset the display
-  //  gpio_set_level(PIN_NUM_RST, 1);
-  //  vTaskDelay(100 / portTICK_RATE_MS);
     lcd_init_cmds = st_init_cmds;
     gpio_set_level(PIN_NUM_RST, 0);
     vTaskDelay(100 / portTICK_PERIOD_MS);
@@ -241,15 +237,11 @@ int frame_sent=0;
 
 void send_frame() {
     
-    #ifdef PARALLEL_LCD
-    //display_width_offset=0;
-    //display_height_offset=35;
+#ifdef PARALLEL_LCD
     int x_start=display_width_offset;
     int x_end=display_width_offset+display_width;
     int y_start=display_height_offset;
     int y_end=display_height_offset+display_height;
-
-   // esp_lcd_panel_io_rx_param
     
     esp_lcd_panel_io_tx_param(io_handle, ST7789_CASET, (uint8_t[]) {
         (x_start >> 8) & 0xFF,
@@ -269,13 +261,8 @@ void send_frame() {
 
     frame_sent=1;
     if(frame_buffer==fb1) frame_buffer=fb2;
-    else frame_buffer=fb1;
-  //  esp_lcd_panel_draw_bitmap(io_handle,display_width_offset,display_height_offset,
-  //              display_width_offset + display_width - 1,display_height_offset + display_height - 1,frame_buffer);
-    return;
-    #endif
-    
-
+        else frame_buffer=fb1;
+#else
     int x;
     // Transaction descriptors. Declared static so they're not allocated on the
     // stack; we need this memory even when this function is finished because
@@ -299,22 +286,17 @@ void send_frame() {
 
     // Queue all transactions.
     for (x = 0; x < NELEMS(trans); x++) {
-#ifdef PARALLEL_LCD
-        if(x%2) {
-            lcd_cmd(trans[x-1].tx_data[0],trans[x].flags?trans[x].tx_data:trans[x].tx_buffer,trans[x].length/8);
-        }
-#else
         esp_err_t ret;
         if(!USE_POLLING)
             ret = spi_device_queue_trans(spi_device, &trans[x], portMAX_DELAY);
         else
             ret = spi_device_polling_transmit(spi_device, &trans[x]);
         assert(ret == ESP_OK);
-#endif
     }
     frame_sent=1;
     if(frame_buffer==fb1) frame_buffer=fb2;
-    else frame_buffer=fb1;
+        else frame_buffer=fb1;
+#endif
 }
 
 void wait_frame() {
