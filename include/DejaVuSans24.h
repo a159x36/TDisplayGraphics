@@ -277,4 +277,4 @@ static const GFXglyph glyphs_dj24[] ={{0,0,0,8,0,-4},
 {2139,15,5,20,3,-14},
 };
 
-const GFXfont DejaVuSans24 = {(uint8_t *)bitmap_dj24,(GFXglyph *)glyphs_dj24,0x20,0x7e,46 };
+const GFXfont DejaVuSans24 = {(uint8_t *)bitmap_dj24,(GFXglyph *)glyphs_dj24,0x20,0x7e,24 };

@@ -127,4 +127,4 @@ static const GFXglyph glyphs_ds[] ={{0,0,0,3,0,0},
 {350,6,3,8,1,-5},
 };
 
-const GFXfont def_small = {(uint8_t *)bitmap_ds,(GFXglyph *)glyphs_ds,0x20,0x7e,16 };
+const GFXfont def_small = {(uint8_t *)bitmap_ds,(GFXglyph *)glyphs_ds,0x20,0x7e,8 };

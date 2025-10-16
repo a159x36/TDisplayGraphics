@@ -215,4 +215,4 @@ const GFXglyph Ubuntu16Glyphs[] PROGMEM = {
 };
 
 const GFXfont Ubuntu16 PROGMEM = {(uint8_t *)Ubuntu16Bitmaps, 
-(GFXglyph *)Ubuntu16Glyphs, 0x20, 0x91, 32 };
+(GFXglyph *)Ubuntu16Glyphs, 0x20, 0x91, 16 };

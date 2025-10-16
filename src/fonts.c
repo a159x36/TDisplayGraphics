@@ -64,7 +64,7 @@ int printProportionalChar(int x, int y, char c) {
     uint16_t bo = glyph->bitmapOffset;
     uint8_t w = glyph->width, h = glyph->height;
     int8_t xo = glyph->xOffset,
-           yo = cfont.yAdvance/2+glyph->yOffset;
+           yo = cfont.yAdvance+glyph->yOffset;
     uint8_t xx, yy, bits = 0, bit = 0;
 
     if (anitalias) {
@@ -80,7 +80,7 @@ int printProportionalChar(int x, int y, char c) {
             cols[i]=rgbToColour(fgm*fcred+bgm*r,fgm*fcgreen+bgm*g,fgm*fcblue+bgm*b);
         }
         xo=xo/2;
-        yo= cfont.yAdvance/2+glyph->yOffset+3;
+        yo= cfont.yAdvance+glyph->yOffset+3;
         for (yy = 0; yy < h; yy+=2) {
             uint8_t line[w/2+1];
             for(int i=0;i<w/2+1;i++)
@@ -125,7 +125,7 @@ int print_xy(char *st, int x, int y) {
     int startx=x;
     int maxx=x;
     if(y==CENTER) {
-        y=display_height/2-cfont.yAdvance/4;
+        y=display_height/2-cfont.yAdvance/2;
     }
     if(x==CENTER) {
         x=display_width/2-print_xy(st,0,-1)/2;
@@ -137,7 +137,7 @@ int print_xy(char *st, int x, int y) {
         ch = st[i];
 		if(ch=='\n') {
 			x=startx;
-			y=y+cfont.yAdvance/2;
+			y=y+cfont.yAdvance;
 		} else {
             if(y>=0)
                 x += printProportionalChar(x, y, ch);

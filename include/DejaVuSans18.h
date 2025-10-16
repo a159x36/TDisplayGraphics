@@ -202,4 +202,4 @@ static const GFXglyph glyphs_dj18[] ={{0,0,0,6,0,-4},
 {1246,11,5,15,2,-13},
 };
 
-const GFXfont DejaVuSans18 = {(uint8_t *)bitmap_dj18,(GFXglyph *)glyphs_dj18,0x20,0x7e,36 };
+const GFXfont DejaVuSans18 = {(uint8_t *)bitmap_dj18,(GFXglyph *)glyphs_dj18,0x20,0x7e,18 };
