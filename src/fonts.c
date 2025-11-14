@@ -24,39 +24,36 @@
 #include "def_small.h"
 
 GFXfont cfont;
-
 uint16_t fontColour = -1;
+int antialias=0;
 
 void setFont(GFXfont font) {
     cfont=font;
 }
 
+void setAntialias(int v) {
+    antialias=v;
+}
+
 int getFontHeight() {
     return cfont.yAdvance;
 }
-int fcred=0;
-int fcgreen=0;
-int fcblue=0;
+
 void setFontColour(uint8_t red, uint8_t green, uint8_t blue) {
     uint16_t v = ((red >> 3) << 11) | ((green >> 2) << 5) | (blue >> 3);
     fontColour = v;
-    fcred=red;
-    fcgreen=green;
-    fcblue=blue;
 }
-int anitalias=0;
+
 int charWidth(char c) {
     if(c>cfont.last) return 0;
     int ch=c-cfont.first;
     if(ch<0) return 0;
     GFXglyph *glyph = cfont.glyph+ch;
-    if(anitalias) return glyph->xAdvance/2;
+    if(antialias) return glyph->xAdvance/2;
     return glyph->xAdvance;
 }
 
-int printProportionalChar(int x, int y, char c) {
-    
-
+static int printProportionalChar(int x, int y, char c) {
     if(c>cfont.last) return 0;
     int ch=c-cfont.first;
     if(ch<0) return 0;
@@ -65,41 +62,51 @@ int printProportionalChar(int x, int y, char c) {
     uint8_t w = glyph->width, h = glyph->height;
     int8_t xo = glyph->xOffset,
            yo = cfont.yAdvance+glyph->yOffset;
+    int maxy = cfont.yAdvance+glyph->yOffset+h+1;
     uint8_t xx, yy, bits = 0, bit = 0;
+    
 
-    if (anitalias) {
-        uint16_t pixel=frame_buffer[display_width*y+x];
-        int r= (pixel&0xf800)>>8;
-        int g= (pixel&0x07e0)>>3;
-        int b= (pixel&0x001f)<<3;
-
-        int cols[5];//{0,rgbToColour(64,64,64),rgbToColour(128,128,128),rgbToColour(192,192,192),-1};
-        for(int i=0;i<5;i++) {
-            float fgm=i/4.0f;
-            float bgm=1-fgm;
-            cols[i]=rgbToColour(fgm*fcred+bgm*r,fgm*fcgreen+bgm*g,fgm*fcblue+bgm*b);
+    if (antialias) {
+        static uint16_t *buffer=0;
+        static int buffer_size=0;
+        if(maxy*glyph->xAdvance*2>buffer_size) {
+            buffer_size=maxy*glyph->xAdvance*2;
+            if(buffer!=0) free(buffer);
+            buffer=malloc(maxy*glyph->xAdvance*2);
         }
-        xo=xo/2;
-        yo= cfont.yAdvance+glyph->yOffset+3;
-        for (yy = 0; yy < h; yy+=2) {
-            uint8_t line[w/2+1];
-            for(int i=0;i<w/2+1;i++)
-                line[i]=0;
-            for(int yi=yy;yi<yy+2 && yi<h;yi++) {
+        if(buffer==0) return 0;
+        for(yy=0;yy<maxy;yy++) {
+            for(xx=0;xx<glyph->xAdvance;xx++) {
+                if((y+yy/2)<display_height && (x+xx/2)<display_width)
+                    buffer[yy*glyph->xAdvance+xx]=frame_buffer[display_width*(y+yy/2)+x+xx/2];
+            }
+        }
+        for (yy = 0; yy < h; yy++) {
             for (xx = 0; xx < w; xx++) {
-                if (!(bit++ & 7)) {
+                if (!(bit++ & 7)) 
                     bits = cfont.bitmap[bo++];
-                }
                 if (bits & 0x80) {
-                    line[xx/2]++;
-                }
+                    if((yo+yy)*glyph->xAdvance+xo + xx<maxy*glyph->xAdvance)
+                        buffer[(yo+yy)*glyph->xAdvance+xo + xx]= fontColour;
+                }                 
                 bits <<= 1;
             }
-            }
-            for(int i=0;i<w/2+1;i++) {
-                if(line[i]) draw_pixel(x + xo + i, y + (yo + yy)/2, cols[line[i]]);
+        }
+       
+        for(yy=0;yy<maxy/2;yy++) {
+            for(xx=0;xx<glyph->xAdvance/2;xx++) {
+                int r=0,g=0,b=0;
+                for(int j=0;j<2;j++)
+                    for(int i=0;i<2;i++) {
+                        uint16_t pixel=buffer[(yy*2+j)*glyph->xAdvance+xx*2+i];
+                        r+= (pixel&0xf800)>>8;
+                        g+= (pixel&0x07e0)>>3;
+                        b+= (pixel&0x001f)<<3;
+                    }
+                draw_pixel(x+xx,y+yy,rgbToColour(r/4,g/4,b/4));
             }
         }
+
         return glyph->xAdvance/2;
     }
 
@@ -137,7 +144,10 @@ int print_xy(char *st, int x, int y) {
         ch = st[i];
 		if(ch=='\n') {
 			x=startx;
-			y=y+cfont.yAdvance;
+            if(!antialias)
+    			y=y+cfont.yAdvance;
+            else
+                y=y+cfont.yAdvance/2;
 		} else {
             if(y>=0)
                 x += printProportionalChar(x, y, ch);

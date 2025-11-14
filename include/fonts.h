@@ -24,6 +24,8 @@ typedef struct {
 
 void setFont(GFXfont font);
 
+void setAntialias(int i);
+
 #define PROGMEM
 
 extern const GFXfont FreeSans9pt7b,FreeSans12pt7b,FreeSans18pt7b,FreeSans24pt7b,Font_5x7_practical8pt7b;
