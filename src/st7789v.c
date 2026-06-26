@@ -107,6 +107,7 @@ void lcd_cmd(const uint8_t cmd, const uint8_t *data, int len) {
     ret = spi_device_transmit(spi_device, &t[1]);
     assert(ret == ESP_OK); 
 #else
+
     ret=esp_lcd_panel_io_tx_param(io_handle,cmd,data,len);
     if(ret != ESP_OK)
         printf("Error in lcd_cmd %d\n",ret);
@@ -143,10 +144,10 @@ void lcd_init() {
         .flags=SPI_DEVICE_NO_DUMMY | SPI_DEVICE_HALFDUPLEX
     };
     // Initialize the SPI bus
-    ret = spi_bus_initialize(HSPI_HOST, &buscfg, 1);
+    ret = spi_bus_initialize(SPI2_HOST, &buscfg, 1);
     ESP_ERROR_CHECK(ret);
     // Attach the LCD to the SPI bus
-    ret = spi_bus_add_device(HSPI_HOST, &devcfg, &spi_device);
+    ret = spi_bus_add_device(SPI2_HOST, &devcfg, &spi_device);
     ESP_ERROR_CHECK(ret);
     gpio_set_direction(PIN_NUM_DC, GPIO_MODE_OUTPUT);
     // Initialize the LCD
@@ -173,9 +174,7 @@ void lcd_init() {
 
         },
         .bus_width = 8,
-        .max_transfer_bytes = 320 * 170* sizeof(uint16_t),
-        .psram_trans_align = 64,
-        .sram_trans_align = 4,
+        .max_transfer_bytes = 320 * 170* sizeof(uint16_t)
     };
     ESP_ERROR_CHECK(esp_lcd_new_i80_bus(&bus_config, &i80_bus));
     esp_lcd_panel_io_i80_config_t io_config = {
@@ -209,7 +208,6 @@ void lcd_init() {
     vTaskDelay(100 / portTICK_PERIOD_MS);
     gpio_set_level(PIN_NUM_RST, 1);
     vTaskDelay(100 / portTICK_PERIOD_MS);
-    
 
     // Send all the commands
     while (lcd_init_cmds[cmd].databytes != 0xff) {
